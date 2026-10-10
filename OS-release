@@ -1,0 +1,10 @@
+# Banh-mi-OS release metadata
+NAME="Banh-mi-OS"
+PRETTY_NAME="Banh-mi-OS 0.1.0"
+ID=banh-mi-os
+VERSION="0.1.0"
+VERSION_ID="0.1.0"
+PLATFORM="x86_64"
+ARCHITECTURE="x86_64"
+BOOTLOADER="GRUB 2"
+KERNEL_PROTOCOL="Multiboot2"
