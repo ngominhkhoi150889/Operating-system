@@ -25,6 +25,7 @@ header_start:
     .long 768
     .long 32
 
+    .align 8
     /* End tag. */
     .short 0
     .short 0
