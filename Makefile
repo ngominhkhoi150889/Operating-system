@@ -1,41 +1,60 @@
 SHELL := /bin/bash
 
-TEMPLATE_REPO := https://github.com/Limine-Bootloader/limine-c-template-x86-64.git
-BUILD_DIR := build/template
-KERNEL_DIR := $(BUILD_DIR)/kernel
+BUILD_DIR := build
+ISO_ROOT := $(BUILD_DIR)/iso
+KERNEL := $(BUILD_DIR)/kernel.elf
 HOST_CC ?= cc
 HOST_CFLAGS ?= -std=c11 -Wall -Wextra -Werror -O2
+KERNEL_CC ?= gcc
+KERNEL_CFLAGS := -std=gnu11 -O2 -Wall -Wextra -Werror \
+	-ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie \
+	-fno-asynchronous-unwind-tables -fno-unwind-tables \
+	-m64 -mno-red-zone -mcmodel=small
 
-.PHONY: all iso run clean prepare test
+.PHONY: all iso run test clean check-tools
 
 all: iso
 
-prepare:
-	@command -v git >/dev/null || { echo "Missing dependency: git"; exit 1; }
-	@if [ ! -d "$(BUILD_DIR)/.git" ]; then \
-		mkdir -p build; \
-		git clone --depth 1 "$(TEMPLATE_REPO)" "$(BUILD_DIR)"; \
-	fi
-	@cp kernel/src/main.c "$(KERNEL_DIR)/src/main.c"
-	@cp kernel/src/cpu.S "$(KERNEL_DIR)/src/cpu.S"
-	@cp kernel/src/libk.c "$(KERNEL_DIR)/src/libk.c"
-	@cp kernel/src/libk.h "$(KERNEL_DIR)/src/libk.h"
-	@sed -i 's/^override IMAGE_NAME := template/override IMAGE_NAME := KhoiOS/' "$(BUILD_DIR)/GNUmakefile"
-	@sed -i 's/Limine Template/KhoiOS/' "$(BUILD_DIR)/limine.conf"
+check-tools:
+	@for tool in $(KERNEL_CC) ld grub-file grub-mkrescue xorriso; do \
+		command -v $$tool >/dev/null 2>&1 || { echo "Missing dependency: $$tool"; exit 1; }; \
+	done
 
-iso: prepare
-	$(MAKE) -C "$(BUILD_DIR)" all
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/boot.o: kernel/src/boot.S | $(BUILD_DIR)
+	$(KERNEL_CC) -m64 -c $< -o $@
+
+$(BUILD_DIR)/cpu.o: kernel/src/cpu.S | $(BUILD_DIR)
+	$(KERNEL_CC) -m64 -c $< -o $@
+
+$(BUILD_DIR)/main.o: kernel/src/main.c kernel/src/libk.h | $(BUILD_DIR)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/libk.o: kernel/src/libk.c kernel/src/libk.h | $(BUILD_DIR)
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -c $< -o $@
+
+$(KERNEL): $(BUILD_DIR)/boot.o $(BUILD_DIR)/cpu.o $(BUILD_DIR)/main.o $(BUILD_DIR)/libk.o kernel/linker.ld
+	ld -m elf_x86_64 -T kernel/linker.ld -nostdlib -z max-page-size=0x1000 \
+		-o $@ $(BUILD_DIR)/boot.o $(BUILD_DIR)/cpu.o $(BUILD_DIR)/main.o $(BUILD_DIR)/libk.o
+	grub-file --is-x86-multiboot2 $@
+
+iso: check-tools $(KERNEL) grub/grub.cfg
+	mkdir -p $(ISO_ROOT)/boot/grub
+	cp $(KERNEL) $(ISO_ROOT)/boot/kernel.elf
+	cp grub/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
+	grub-mkrescue -o $(BUILD_DIR)/KhoiOS.iso $(ISO_ROOT)
 	@echo
-	@echo "ISO created: $(BUILD_DIR)/KhoiOS.iso"
+	@echo "GRUB ISO created: $(BUILD_DIR)/KhoiOS.iso"
 
 run: iso
-	$(MAKE) -C "$(BUILD_DIR)" run-uefi
+	qemu-system-x86_64 -m 512M -cdrom $(BUILD_DIR)/KhoiOS.iso -no-reboot -no-shutdown
 
-test:
-	@mkdir -p build/tests
-	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/src kernel/src/libk.c tests/test_libk.c -o build/tests/test_libk
-	./build/tests/test_libk
+test: | $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)/tests
+	$(HOST_CC) $(HOST_CFLAGS) -Ikernel/src kernel/src/libk.c tests/test_libk.c -o $(BUILD_DIR)/tests/test_libk
+	./$(BUILD_DIR)/tests/test_libk
 
 clean:
-	@if [ -d "$(BUILD_DIR)" ]; then $(MAKE) -C "$(BUILD_DIR)" clean; fi
-	rm -rf build
+	rm -rf $(BUILD_DIR)
