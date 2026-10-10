@@ -40,16 +40,17 @@ $(KERNEL): $(BUILD_DIR)/boot.o $(BUILD_DIR)/cpu.o $(BUILD_DIR)/main.o $(BUILD_DI
 		-o $@ $(BUILD_DIR)/boot.o $(BUILD_DIR)/cpu.o $(BUILD_DIR)/main.o $(BUILD_DIR)/libk.o
 	grub-file --is-x86-multiboot2 $@
 
-iso: check-tools $(KERNEL) grub/grub.cfg
+iso: check-tools $(KERNEL) grub/grub.cfg OS-release
 	mkdir -p $(ISO_ROOT)/boot/grub
 	cp $(KERNEL) $(ISO_ROOT)/boot/kernel.elf
+	cp OS-release $(ISO_ROOT)/boot/OS-release
 	cp grub/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
-	grub-mkrescue -o $(BUILD_DIR)/KhoiOS.iso $(ISO_ROOT)
+	grub-mkrescue -o $(BUILD_DIR)/Banh-mi-OS.iso $(ISO_ROOT)
 	@echo
-	@echo "GRUB ISO created: $(BUILD_DIR)/KhoiOS.iso"
+	@echo "GRUB ISO created: $(BUILD_DIR)/Banh-mi-OS.iso"
 
 run: iso
-	qemu-system-x86_64 -m 512M -cdrom $(BUILD_DIR)/KhoiOS.iso -no-reboot -no-shutdown
+	qemu-system-x86_64 -m 512M -cdrom $(BUILD_DIR)/Banh-mi-OS.iso -no-reboot -no-shutdown
 
 test: | $(BUILD_DIR)
 	@mkdir -p $(BUILD_DIR)/tests
