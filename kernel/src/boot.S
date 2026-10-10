@@ -42,9 +42,6 @@ _start:
     movl %ebx, boot_info_phys
 
     /* Four page directories map physical addresses 0..4 GiB. */
-    movl $pml4_table, %eax
-    orl $0x3, %eax
-    movl %eax, pdpt_table
     movl $pdpt_table, %eax
     orl $0x3, %eax
     movl %eax, pml4_table
