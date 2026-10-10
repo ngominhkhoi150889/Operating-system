@@ -247,9 +247,7 @@ static int load_os_release(uintptr_t info_addr) {
             tag->size >= sizeof(struct multiboot2_tag_module)) {
             const struct multiboot2_tag_module *module =
                 (const struct multiboot2_tag_module *)tag;
-            if (module->module_end > module->module_start &&
-                module->module_end <= 0x100000000ull &&
-                module->module_start < 0x100000000ull) {
+            if (module->module_end > module->module_start) {
                 size_t length = module->module_end - module->module_start;
                 const char *cmd = module->command_line;
                 if (k_strncmp(cmd, "os-release", 10) == 0 &&
