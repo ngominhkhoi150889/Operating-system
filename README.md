@@ -1,24 +1,23 @@
 # KhoiOS
 
-KhoiOS is an educational x86_64 hobby operating-system kernel written in C and Assembly. It boots through the Limine boot protocol in UEFI mode (QEMU + OVMF).
+KhoiOS is an educational x86_64 hobby operating-system kernel written in C and Assembly. It now boots through **GRUB 2 using the Multiboot2 protocol**.
 
 ## Current milestones
 
-- Limine UEFI boot path
-- Freestanding C kernel with a framebuffer boot banner
-- x86_64 Assembly CPU halt routine
+- GRUB 2 / Multiboot2 boot path
+- 32-bit bootstrap that enables x86_64 long mode
+- Identity mapping for the first 4 GiB of physical memory
+- Framebuffer boot banner: `KHOIOS BOOT OK`
 - Initial `libk` helpers: `k_memset`, `k_memcpy`, `k_memmove`, `k_strlen`, `k_strcmp`, and `k_strncmp`
 - Host-side unit tests for the `libk` helpers
 
-This repository keeps KhoiOS source code separate from the upstream Limine C template. The Makefile fetches the upstream template into `build/template` and copies in KhoiOS kernel sources before building. The template's own build scripts fetch the Limine protocol/dependency files and create the ISO.
-
 ## Build on Ubuntu / WSL 2
 
-Install the host tools:
+Install the build and GRUB tools:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential git curl xorriso qemu-system-x86 ovmf mtools nasm
+sudo apt install -y build-essential grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools qemu-system-x86
 ```
 
 Clone and build:
@@ -29,15 +28,15 @@ cd KhoiOS
 make iso
 ```
 
-The resulting image is at `build/template/KhoiOS.iso`.
+The ISO is created at `build/KhoiOS.iso`. The build also checks the kernel with `grub-file --is-x86-multiboot2`.
 
-## Run with UEFI
+## Run in QEMU
 
 ```bash
 make run
 ```
 
-This uses QEMU with OVMF (UEFI firmware). Close the QEMU window to exit. If you are using WSL without GUI support, run `make iso` first and then run QEMU from a desktop Linux environment, or configure WSLg.
+The default run target boots the GRUB ISO using QEMU's BIOS firmware. The ISO can also include GRUB's UEFI boot support when the UEFI GRUB package is installed. If QEMU's graphical window is unavailable in WSL, build the ISO with `make iso` and run it in a Linux desktop or configure WSLg.
 
 ## Run the libk unit tests
 
@@ -47,7 +46,7 @@ These tests run as a normal Linux program and do not boot the OS:
 make test
 ```
 
-A successful run prints:
+Expected output:
 
 ```text
 KhoiOS libk tests: PASS
@@ -65,20 +64,24 @@ make clean
 .
 ├── Makefile
 ├── README.md
+├── grub
+│   └── grub.cfg
 ├── kernel
+│   ├── linker.ld
 │   └── src
-│       ├── main.c
+│       ├── boot.S
 │       ├── cpu.S
 │       ├── libk.c
-│       └── libk.h
+│       ├── libk.h
+│       └── main.c
 └── tests
     └── test_libk.c
 ```
 
 ## Roadmap
 
-1. Build and test the initial kernel support library.
-2. Read the Limine memory map and add physical page allocation.
+1. Verify the GRUB Multiboot2 boot path on QEMU.
+2. Read the Multiboot2 memory map and add a physical page allocator.
 3. Add interrupt handling and a timer.
 4. Add keyboard input and a basic shell.
 5. Start building a graphical desktop.
@@ -87,4 +90,3 @@ make clean
 
 - This is an educational hobby OS, not a replacement for a production operating system.
 - KhoiOS does not yet include multitasking, a filesystem, networking, or hardware drivers.
-- Limine C template: https://github.com/Limine-Bootloader/limine-c-template-x86-64
