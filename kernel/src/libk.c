@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "libk.h"
 
 void *k_memset(void *dest, int value, size_t count) {
@@ -25,7 +26,7 @@ void *k_memmove(void *dest, const void *src, size_t count) {
         return dest;
     }
 
-    if (out < in) {
+    if ((uintptr_t)out < (uintptr_t)in) {
         for (size_t i = 0; i < count; ++i) {
             out[i] = in[i];
         }
